@@ -133,7 +133,7 @@ router.post('/signup', async (req, res) => {
 
 const sendVerificationEmail = ({_id, email}, res)=>{
     // url to be used in the email
-    const currentUrl = "http://localhost:5000/";
+    const currentUrl = "https://wattsmysplit-backend.onrender.com/";
 
     const uniqueString = uuidv4() + _id;
 
