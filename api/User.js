@@ -133,7 +133,8 @@ router.post('/signup', async (req, res) => {
 
 const sendVerificationEmail = ({_id, email}, res)=>{
     // url to be used in the email
-    const currentUrl = "http://localhost:5000/";
+    // const currentUrl = "http://localhost:5000/";
+    const currentUrl = "https://wattsmysplit-backend.onrender.com/";
 
     const uniqueString = uuidv4() + _id;
 
@@ -211,7 +212,7 @@ router.get("/verify/:userId/:uniqueString", (req, res) => {
                         User.deleteOne({ _id: userId }).then(() => {
                             let message = "Link has expired. Please sign up again.";
                             // Log the type of res object
-                            console.log(typeof res.redirect); // It should log 'function'
+                            console.log(typeof res.redirect); 
                             res.redirect(`/user/verified?error=true&message=${message}`);
                         });
                     });
@@ -222,7 +223,7 @@ router.get("/verify/:userId/:uniqueString", (req, res) => {
                             User.updateOne({ _id: userId }, { verified: true }).then(() => {
                                 UserVerification.deleteOne({ userId }).then(() => {
                                     // Send the verified page if verification is successful
-                                    console.log(typeof res.sendFile); // It should log 'function'
+                                    console.log(typeof res.sendFile); 
                                     res.sendFile(path.resolve(__dirname, "../views/verified.html"));
                                 });
                             });
