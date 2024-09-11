@@ -5,6 +5,19 @@ const bcrypt = require('bcrypt');
 
 // User model
 const User = require('../models/UserModel'); // Assuming this is correctly defined
+const UserVerification = require('../models/UserVerification')
+
+
+
+
+
+router.get("/", async(req, res) =>{
+    return res.json({
+        status: "Success",
+        message: "Hello you piece of sh#t"
+    });
+})
+
 
 // Sign-up route
 router.post('/signup', async (req, res) => {
