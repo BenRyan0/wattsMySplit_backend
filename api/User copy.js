@@ -196,54 +196,90 @@ const sendVerificationEmail = ({_id, email}, res)=>{
 
 
 // verify
-router.get("/verify/:userId/:uniqueString", (req, res) => {
-    let { userId, uniqueString } = req.params;
+router.get("/verify/:userId/:uniqueString",(req, res)=>{
+    let {userId, uniqueString} = req.params;
 
-    UserVerification.find({ userId })
-        .then((verification) => {
-            if (verification.length > 0) {
-                const { expiresAt } = verification[0];
-                const hashedUniqueString = verification[0].uniqueString;
+    UserVerification.find({userId})
+    .then((res) =>{
+        if(res.length > 0){
+            // User Verification exists so we proceed
+            const {expiresAt} = res[0];
+            const hashedUniqueString = res[0].uniqueString;
 
-                if (expiresAt < Date.now()) {
-                    // Handle expired verification
-                    UserVerification.deleteOne({ userId }).then(() => {
-                        User.deleteOne({ _id: userId }).then(() => {
-                            let message = "Link has expired. Please sign up again.";
-                            // Log the type of res object
-                            console.log(typeof res.redirect); // It should log 'function'
-                            res.redirect(`/user/verified?error=true&message=${message}`);
-                        });
-                    });
-                } else {
-                    // Proceed with verification
-                    bcrypt.compare(uniqueString, hashedUniqueString).then((match) => {
-                        if (match) {
-                            User.updateOne({ _id: userId }, { verified: true }).then(() => {
-                                UserVerification.deleteOne({ userId }).then(() => {
-                                    // Send the verified page if verification is successful
-                                    console.log(typeof res.sendFile); // It should log 'function'
-                                    res.sendFile(path.resolve(__dirname, "../views/verified.html"));
-                                });
-                            });
-                        } else {
-                            let message = "Invalid verification details. Please check your inbox.";
-                            res.redirect(`/user/verified?error=true&message=${message}`);
-                        }
-                    });
+
+            // Checking if the uniqueSting has already expired
+            if(expiresAt < Date.now()){
+                // the Record is expired
+                UserVerification.deleteOne({userId})
+                .then(result =>{
+                    User.deleteOne({_id: userId})
+                    .then(()=>{
+                        let message= "Link has expired. Please Sign up Again";
+                        res.redirect(`/user/verified/error=true&message=${message}`);
+                    })
+                    .catch(error=>{
+                        let message= "An Error has occurred while clearing the unique string of the user";
+                        res.redirect(`/user/verified/error=true&message=${message}`);
+                    })
                 }
-            } else {
-                let message = "Account record does not exist or has already been verified.";
-                res.redirect(`/user/verified?error=true&message=${message}`);
-            }
-        })
-        .catch((err) => {
-            console.log(err);
-            let message = "Error occurred while verifying the account.";
-            res.redirect(`/user/verified?error=true&message=${message}`);
-        });
-});
 
+                )
+                .catch((error)=>{
+                    console.log(error)
+                    let message= "An Error has occurred while clearing the expired user verification record.";
+                    res.redirect(`/user/verified/error=true&message=${message}`);
+                })
+
+
+            }else{
+                // Valid record exists
+                
+                // comparing the bashed and the received unique string
+                bcrypt.compare(uniqueString, hashedUniqueString)
+                .then(result =>{
+                    if(result){
+                        // Strings Matched
+                        User.updateOne({_id: userId}, {verified : true})
+                        .then(()=>{
+                            UserVerification.deleteOne({userId})
+                            .then(()=>{
+                                res.sendFile(path.join(__dirname, "./../views/verified.html"))
+                            })
+                            .catch(error =>{
+                                console.log(error)
+                                let message= "An Error has occurred while finalizing successful verification ";
+                                res.redirect(`/user/verified/error=true&message=${message}`);
+                            })
+                        })
+                        .catch(error => {
+                            console.log(error)
+                            let message= "An Error has occurred while updating user record.";
+                            res.redirect(`/user/verified/error=true&message=${message}`);
+                        })
+                    }else{
+                        // Existing record but incorrect verification record
+                        let message= "Invalid verification details passed. Please Check your inbox.";
+                        res.redirect(`/user/verified/error=true&message=${message}`);
+                    }
+                })
+                .catch(error =>{
+                    let message= "An Error has occurred while comparing the unique Strings";
+                    res.redirect(`/user/verified/error=true&message=${message}`);
+                })
+            }
+        }else{
+            // User Verification does not exist
+            let message= "Account record does not exist or has been verified already. PLease Sign up or login";
+            res.redirect(`/user/verified/error=true&message=${message}`);
+        }
+    })
+    .catch((error)=>{
+        console.log(error);
+        let message= "An Error has occurred while checking for existing user verification.";
+        res.redirect(`/user/verified/error=true&message=${message}`);
+    })
+
+})
 
 
 router.get("/verified",(req,res)=>{
