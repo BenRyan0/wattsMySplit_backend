@@ -7,16 +7,43 @@ const bcrypt = require('bcrypt');
 const User = require('../models/UserModel'); // Assuming this is correctly defined
 const UserVerification = require('../models/UserVerification')
 
+// EMAIL VERIFICATION
+const nodemailer = require('nodemailer')
+
+// Unique String
+const {v4: uuidv4} = require("uuid")
+
+require("dotenv").config();
+
+// Path for the static verified page
+const path = require('path');
+const { error } = require('console');
 
 
 
 
-router.get("/", async(req, res) =>{
-    return res.json({
-        status: "Success",
-        message: "Hello you piece of sh#t"
-    });
+// NodeMailer
+let transporter =  nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+        user: process.env.AUTH_EMAIL,   // Load email from environment variable
+        pass: process.env.AUTH_PASS     // Corrected 'pass' for the password
+    }
+});
+
+
+
+// testing
+transporter.verify((error, success)=>{
+    if(error){
+        console.log(error)
+
+    }else{
+        console.log("Ready")
+    }
 })
+
+
 
 
 // Sign-up route
@@ -76,15 +103,20 @@ router.post('/signup', async (req, res) => {
                 name,
                 email,
                 password: hashedPassword,
-                dateOfBirth
+                dateOfBirth,
+                verified: false
             });
 
-            const result = await newUser.save();
-            return res.json({
-                status: "Success",
-                message: "User successfully registered",
-                data: result
-            });
+            const result = await newUser.save()
+            .then((result)=>{
+                // Handle the account verification
+                sendVerificationEmail(result,res);
+            })
+            // return res.json({
+            //     status: "Success",
+            //     message: "User successfully registered",
+            //     data: result
+            // });
 
         } catch (err) {
             console.error(err);
@@ -95,6 +127,167 @@ router.post('/signup', async (req, res) => {
         }
     }
 });
+
+
+
+
+const sendVerificationEmail = ({_id, email}, res)=>{
+    // url to be used in the email
+    const currentUrl = "http://localhost:500/";
+
+    const uniqueString = uuidv4() + _id;
+
+
+    const mailOptions = {
+        from: process.env.AUTH_EMAIL,
+        to: email,
+        subject: "Verify Your Email",
+        html: `<p>Verify you Email Address to Complete the Signup and Login into your Account.</p> <p>This Link Expires in 6 Hours</p> <p>Press <a href=${currentUrl + "user/verify/" + _id + "/" + uniqueString}> Here</a> to proceed.</p>`,
+    }
+    // hash the uniqueString
+    const saltRounds = 10
+    bcrypt
+    .hash(uniqueString, saltRounds)
+    .then((hashedUniqueString) =>{
+        // set values for the verification
+
+        const newVerification = new UserVerification({
+            userId: _id,
+            uniqueString: hashedUniqueString,
+            createdAt: Date.now(),
+            expiresAt: Date.now() + 21600000,
+        });
+
+
+        newVerification
+        .save()
+        .then(()=>{
+            transporter.sendMail(mailOptions)
+            .then(()=>{
+                // email has been sent and verification record has been saved
+                return res.json({
+                    status: "Pending",
+                    message: "Email Verification Sent"
+                })
+            })
+            .catch((error)=>{
+                console.log(error)
+                return res.json({
+                    status: "Failed",
+                    message: "Email Verification failed"
+                });
+            })
+        })
+        .catch((error)=>{
+            console.log(error)
+            return res.json({
+                status: "Failed",
+                message: "Verification Data Could not be saved"
+            });
+        })
+    })
+    .catch(()=>{
+        return res.json({
+            status: "Failed",
+            message: "An error has occurred while hashing the email data"
+        });
+    })
+}
+
+
+// verify
+router.get("/verify/:userId/:uniqueString",(req, res)=>{
+    let {userId, uniqueString} = req.params;
+
+    UserVerification.find({userId})
+    .then((res) =>{
+        if(res.length > 0){
+            // User Verification exists so we proceed
+            const {expiresAt} = res[0];
+            const hashedUniqueString = res[0].uniqueString;
+
+
+            // Checking if the uniqueSting has already expired
+            if(expiresAt < Date.now()){
+                // the Record is expired
+                UserVerification.deleteOne({userId})
+                .then(result =>{
+                    User.deleteOne({_id: userId})
+                    .then(()=>{
+                        let message= "Link has expired. Please Sign up Again";
+                        res.redirect(`/user/verified/error=true&message=${message}`);
+                    })
+                    .catch(error=>{
+                        let message= "An Error has occurred while clearing the unique string of the user";
+                        res.redirect(`/user/verified/error=true&message=${message}`);
+                    })
+                }
+
+                )
+                .catch((error)=>{
+                    console.log(error)
+                    let message= "An Error has occurred while clearing the expired user verification record.";
+                    res.redirect(`/user/verified/error=true&message=${message}`);
+                })
+
+
+            }else{
+                // Valid record exists
+                
+                // comparing the bashed and the received unique string
+                bcrypt.compare(uniqueString, hashedUniqueString)
+                .then(result =>{
+                    if(result){
+                        // Strings Matched
+                        User.updateOne({_id: userId}, {verified : true})
+                        .then(()=>{
+                            UserVerification.deleteOne({userId})
+                            .then(()=>{
+                                res.sendFile(path.join(__dirname, "../views/verified.html"))
+                            })
+                            .catch(error =>{
+                                console.log(error)
+                                let message= "An Error has occurred while finalizing successful verification ";
+                                res.redirect(`/user/verified/error=true&message=${message}`);
+                            })
+                        })
+                        .catch(error => {
+                            console.log(error)
+                            let message= "An Error has occurred while updating user record.";
+                            res.redirect(`/user/verified/error=true&message=${message}`);
+                        })
+                    }else{
+                        // Existing record but incorrect verification record
+                        let message= "Invalid verification details passed. Please Check your inbox.";
+                        res.redirect(`/user/verified/error=true&message=${message}`);
+                    }
+                })
+                .catch(error =>{
+                    let message= "An Error has occurred while comparing the unique Strings";
+                    res.redirect(`/user/verified/error=true&message=${message}`);
+                })
+            }
+        }else{
+            // User Verification does not exist
+            let message= "Account record does not exist or has been verified already. PLease Sign up or login";
+            res.redirect(`/user/verified/error=true&message=${message}`);
+        }
+    })
+    .catch((error)=>{
+        console.log(error);
+        let message= "An Error has occurred while checking for existing user verification.";
+        res.redirect(`/user/verified/error=true&message=${message}`);
+    })
+
+})
+
+
+router.get("/verified",(req,res)=>{
+    res.sendFile(path.join(__dirname, "../views/verified.html"))
+})
+
+
+
 
 // Sign-in route (placeholder)
 router.post("/login", async (req, res) => {
@@ -118,7 +311,14 @@ router.post("/login", async (req, res) => {
                 message: "User not found, please try again"
             });
         }
-
+        // checking for the verification status of the user
+        if(!user[0].verified){
+            return res.json({
+                status: "Failed",
+                message: "Email Has Not Been Verified Yet. Please Check your inbox."
+            });
+        }else{
+            
         const hashedPassword = user[0].password;
 
         // Compare password
@@ -143,6 +343,7 @@ router.post("/login", async (req, res) => {
             });
         });
         
+        }
     } catch (error) {
         return res.json({
             status: "Failed",

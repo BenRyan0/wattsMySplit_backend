@@ -2,8 +2,14 @@ const mongoose = require('mongoose')
 const Schema = mongoose.Schema;
 
 const UserVerificationSchema = new Schema({
-    name: String,
-    uniqueString: String,
+    userId: {
+        type: String,
+        required: true
+    },
+    uniqueString: {
+        type: String,
+        required: true
+    },
     createdAt: Date,
     expiresAt : Date
 });
