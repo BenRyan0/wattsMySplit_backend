@@ -6,6 +6,7 @@ const app = express();
 const UserRouter = require('./api/User');
 const port = process.env.PORT || 5000;
 
+app.use(cors());
 
 app.use(express.json())
 app.use('/user', UserRouter)
