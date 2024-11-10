@@ -14,13 +14,13 @@ router.post('/parkSpace', async (req, res) => {
         console.log(req.body)
         return res.status(200).json({
             status: "Success",
-            message: `Slot Availability Modified ${park_number}`
+            message: `Slot Availability Modified`
         });
         
     } catch (error) {
         return res.status(400).json({
             status: "Failed",
-            message: `Slot Availability Modification Failed ${park_number} `
+            message: `Slot Availability Modification Failed`
         });
         
     }
