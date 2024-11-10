@@ -20,7 +20,7 @@ router.post('/parkSpace', async (req, res) => {
     } catch (error) {
         return res.status(400).json({
             status: "Failed",
-            message: "Slot Availability Modification Failed "
+            message: `Slot Availability Modification Failed ${park_number} `
         });
         
     }
