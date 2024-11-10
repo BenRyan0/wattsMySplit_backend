@@ -14,7 +14,7 @@ router.post('/parkSpace', async (req, res) => {
         console.log(req.body)
         return res.status(200).json({
             status: "Success",
-            message: "Slot Availability Modified "
+            message: `Slot Availability Modified ${park_number}`
         });
         
     } catch (error) {
