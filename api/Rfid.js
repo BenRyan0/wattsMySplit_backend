@@ -25,7 +25,7 @@ const currentTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().p
     try {
         console.log(`UID: ${UID} TIME SCANNED: ${currentTime}` )
         return res.status(200).json({
-            status: "Success - UID RECEIVED",
+            status: "Success",
             message: `${UID} + ${currentTime}`
         });
         
