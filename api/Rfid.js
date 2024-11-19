@@ -1,3 +1,13 @@
+const express = require('express');
+const router = express.Router();
+const bcrypt = require('bcrypt');
+const User = require('../models/UserModel');
+const UserVerification = require('../models/UserVerification');
+const nodemailer = require('nodemailer');
+const { v4: uuidv4 } = require("uuid");
+require("dotenv").config();
+const path = require('path')
+
 router.post('/uid_read', async (req, res) => {
     const now = new Date(); 
 
@@ -29,3 +39,7 @@ router.post('/uid_read', async (req, res) => {
 
     console.log(req.body)
 });
+
+
+
+module.exports = router;
